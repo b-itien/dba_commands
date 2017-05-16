@@ -3,8 +3,8 @@
 desc resource_view
 
 --Check that MTS is running
-sho parameters dispatcher
-sho parameters shared_Server
+show parameters dispatcher
+show parameters shared_Server
 
 --Setup an http listening port:
 exec dbms_xdb.sethttpport(8080)
@@ -66,7 +66,7 @@ Any other suggestions?
 Report message to a moderator
  Send a private message to this user 	  	 
 - Re: Remote external jobs on Windows [message #511752 is a reply to message #511751] 	Tue, 14 June 2011 21:20 Go to previous message
-John Watson
+John 
 Messages: 6534
 Registered: January 2010
 Location: Global Village 	
@@ -96,7 +96,7 @@ exec dbms_scheduler.set_job_argument_value('tryit',2,'dir')
 
 
 
-evelopers than production.
+developers than production.
 
 CREATE USER ADMIN
   IDENTIFIED BY <choose a good password>
