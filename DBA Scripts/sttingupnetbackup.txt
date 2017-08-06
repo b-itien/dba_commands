@@ -1,0 +1,57 @@
+1. Make sure you have Netbackup licence, Netbackup server software for your platform and the Netbackup agent for Oracle
+
+2. Make sure you have Master Server, Media Server and Tape Library configured.
+
+3. Check the Master Server and other parameters
+
+$ cd /usr/openv/netbackup
+
+$ ls
+$ cat bp.conf
+4. Test the communication from the master server to the database server by issuing the following command:
+
+
+$ cd /usr/openv/netbackup/bin
+$ ./bpclntcmd -pn
+
+5. Verify that the NetBackup daemons are running:
+
+$ netstat -a | grep bpcd
+tcp 0 0 *:bpcd *:* LISTEN
+$ netstat -a | grep vnetd
+tcp 0 0 *:vnetd *:* LISTEN
+
+The presence of the lines with LISTEN at the end indicates that the NetBackup daemons
+bpcd and vnetd are listening to the client requests.
+
+6. Verify that the licenses are all installed. Run the following command:
+
+$ /usr/openv/netbackup/bin/jnbSA
+
+This will open the Admin Console. Check the license, and make sure you have it.
+
+7. Insert the installation CD for NetBackup for Oracle, and mount the CD-ROM
+.
+8. Log in as root on the database server.
+
+9. Run the script ./install.
+
+10. From the menu, choose the option NetBackup Database Agent.
+
+11. When prompted, choose Y for local installation.
+
+12. From the menu, choose NetBackup for Oracle.
+
+13. Check the log files for any installation-related errors.
+
+14. Now link Oracle to the NetBackup client. Log in to the database server box as the
+Oracle software owner.
+
+15. Shut down all the Oracle Databases running on the server under the Oracle Home.
+
+16. Relink Oracle by running the script oracle_link:
+
+$ cd /usr/openv/netbackup/bin
+$ ./oracle_link
+
+17. This creates an output in the file /tmp/make_trace.<pid>. Check the file for errors. 

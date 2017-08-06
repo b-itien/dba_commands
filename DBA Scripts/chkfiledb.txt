@@ -1,0 +1,116 @@
+
+Server identification
+Representative Query
+Notes
+Host name where the instance is running
+select host_name 
+from v$instance;
+You can also obtain this information by running the following from bash:
+ 
+hostname
+or
+uname –n
+Operating system platform
+select platform_name from v$database –-(10g)
+ 
+Similar information is returned if you rununame –s
+ 
+File Information 
+Oracle file locations
+Representative Query
+Notes
+Control files
+select name 
+from v$controlfile;
+Location of the database control files. The init.ora parameter control_files also contains this information.
+Datafiles
+select file_name 
+from Dba_data_files;
+Location of the database datafiles
+Temp files
+select file_name 
+from Dba_temp_files;
+Location of database temporary files
+Log files
+select member 
+from v$logfile;
+Location of redo logs
+Archived logs
+select name 
+from v$archived_log
+Location of archived redo logs. The init.ora parameters log_archive_dest_n also contain this information. This query will not return results if your database is not in Archivelog mode.
+Flash recovery area
+select name 
+from v$recovery_file_dest
+The directory being used in an Oracle 10ginstallation for the flash recovery area. The init.ora parameter db_recovery_file_dest also contains this information.
+Other points of access on the file system indicated by parameters
+select * 
+from v$parameter
+where value like '%/%'
+or
+value like '%/%';
+The results of this query can vary significantly, depending on your installation and version of Oracle Database. Parameters that may be returned include:
+spfile 
+standby_archive_dest 
+utl_file_dir 
+background_dump_dest user_dump_dest 
+core_dump_dest 
+audit_file_dest 
+dg_broker_config_file1 
+dg_broker_config_file2
+Programmatic access to the file system
+select directory_path from dba_directories
+The Oracle UTL_FILE_DIR parameter and DIRECTORY database objects can be used to access files that are not a part of standard database functioning.
+ 
+Process Information 
+Processor/Processes
+Representative Query
+Notes
+Session Processes
+select p.spid, s.username, s.program
+from v$process p, v$session s
+where p.addr=s.paddr order by 2, 3, 1
+The spid can be correlated with ps –ef results to compare the information available within the database with OS information for a given process.
+Processes related to parallelism
+select slave_name, status 
+from v$PQ_SLAVE
+Many aspects of Oracle Database, such as loading, querying, object creation, recovery, and replication, can take advantage of parallelism to speed up activities that can be broken down. The parameter parallel_threads_per_cpu sets an instance’s default degree of parallelism.
+ 
+Memory Information 
+Memory
+Representative Query
+Notes
+Program Global Area
+select * from V$PGASTAT
+The parameter pga_aggregate_target is used to configure memory for all dedicated server connections.
+Linux utilities, including vmstat and top, can be used to monitor memory usage.
+System Global Area
+select * from v$sga
+ 
+ 
+The parameters SGA_MAX_SIZE and SGA_TARGET are used to configure dynamic memory allocation features of Oracle Database 10 g. Other parameters can be used to manually allocate memory for particular purposes.
+Again, various Linux utilities are available to monitor memory allocation.
+
+
+
+
+
+ORACLE: ADDM, AWR and ASH Utilities
+a) An ADDM Report (addmrpt.sql)
+-------------------------------
+The ADDM reporting utility creates a report of its database performance findings. The addmrpt.sql script is found in the $ORACLE_HOME/rdbms/admin directory. The output is written to the current working directory as a text file.
+
+SQL>@$ORACLE_HOME/rdbms/admin/addmrpt.sql
+
+b) AWR Report (awrrpt.sql)
+-------------------------------
+The AWR reporting utility provides an overview of database performance within a specified period of time. It essentially computes the net change in database activity within the period. The awrrpt.sql script is found in the $ORACLE_HOME/rdbms/admin directory. The output is written to the current working directory, please select HTML format.
+
+SQL>@$ORACLE_HOME/rdbms/admin/awrrpt.sql
+
+c) ASH Report (ashrpt.sql)
+----------------------------
+The ASH report utility is useful for determining the amount of active sessions, what they were doing, and which SQL statements were most active during a period of time. It is especially useful for analyzing transient performance issues. The ashrpt.sql script is found in the $ORACLE_HOME/rdbms/admin directory. The output is written to the current working directory, please select HTML format.
+
+SQL>@$ORACLE_HOME/rdbms/admin/ashrpt.sql
+

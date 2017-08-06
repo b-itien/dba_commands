@@ -1,0 +1,103 @@
+connect as root to do all the following except the final step.
+IF it is a file make sure you save     escape :wq
+if you make a mistake escape :q!
+To open a file type vi then the file path and name.
+Remember when you open a file you must type the letter i and see the insert at the bottem before you do anything to the file.
+
+
+cd /etc/yum.repos.d
+
+wget http://public-yum.oracle.com/public-yum-ol6.repo
+wget http://pkgs.repoforge.org/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.i686.rpm
+rpm -Uvh rpmforge-release-0.5.2-2.el6.rf.i686.rpm
+yum install fuse fuse-ntfs-3g
+
+yum -y install binutils compat-libstdc++-33 elfutils-libelf elfutils-libelf-devel glibc glibc-common glibc-devel gcc gcc-c++ libaio libaio-devel libgcc libstdc++ libstdc++-devel make sysstat unixODBC unixODBC-devel
+
+Just connect as root and run the following as is
+
+/usr/sbin/groupadd oinstall
+/usr/sbin/groupadd dba
+/usr/sbin/useradd -g oinstall -G dba oracle
+
+##Set the password of the oracle user:
+
+passwd oracle
+Give oracle any password you will remember. Suggestion use oracle as the password
+
+
+##Copy and paste the below files into the /etc/sysctl.conf file. 
+
+cat >> /etc/sysctl.conf <<EOF
+kernel.shmall = 2097152
+kernel.shmmax = 2147483648
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+fs.file-max = 65536
+net.ipv4.ip_local_port_range = 1024 65000
+net.core.rmem_default = 1048576
+net.core.rmem_max = 1048576
+net.core.wmem_default = 262144
+net.core.wmem_max = 262144
+EOF
+
+Connect as root
+##To increase the shell limits:
+
+1.Add the following lines to the /etc/security/limits.conf file:
+cat >> /etc/security/limits.conf <<EOF
+oracle soft nproc 2047
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+EOF
+
+
+Connect as root
+##add the following lines to the /etc/profile file (or the file on SUSE systems)/etc/profile.local:
+
+cat >> /etc/profile <<EOF
+if [ $USER = "oracle" ]; then
+        if [ $SHELL = "/bin/ksh" ]; then
+              ulimit -p 16384
+              ulimit -n 65536
+        else
+              ulimit -u 16384 -n 65536
+        fi
+     umask 022
+fi
+EOF
+
+
+
+Connect as root
+##Create directory and Grant permission to diretory
+mkdir /app
+mkdir /app/oracle
+mkdir /app/software
+mkdir /app/oraInventory
+chown -R oracle:oinstall /app/oracle /app /app/oraInventory
+chmod -R 775 /app
+
+
+
+
+Connect as oracle
+finally Log off as root and connect as oracle user you just created with the password
+add the following to .bash_profile
+it is located in /home/oracle/.bash_profile
+
+ORACLE_BASE=/app/oracle
+ORACLE_HOME=/app/oracle/product/11.2.0/dbhome_1
+ORACLE_SID=orcl
+PATH=$ORACLE_HOME/bin:$PATH
+export ORACLE_HOME ORACLE_BASE ORACLE_SID
+
+
+REBOOT YOUR SERVER. If not you will not see some of the changes you just made.
+
+yum install oracle-rdbms-server-11gR2-preinstall
+
+
+
+

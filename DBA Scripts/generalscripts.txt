@@ -1,0 +1,473 @@
+To find out the Temp Tablespace Usage:
+
+ set lines 152
+col FreeSpaceGB format 999.999
+col UsedSpaceGB format 999.999
+col TotalSpaceGB format 999.999
+col host_name format a30
+col tablespace_name format a30
+select tablespace_name,
+(free_blocks*8)/1024/1024 FreeSpaceGB,
+(used_blocks*8)/1024/1024 UsedSpaceGB, (total_blocks*8)/1024/1024 TotalSpaceGB,
+i.instance_name,i.host_name
+from gv$sort_segment ss,gv$instance i where ss.tablespace_name in (select tablespace_name from dba_tablespaces where contents='TEMPORARY') and
+i.inst_id=ss.inst_id;SQL> SQL> SQL> SQL> SQL> SQL>   2    3    4    5    6
+
+TABLESPACE_NAME                FREESPACEGB USEDSPACEGB TOTALSPACEGB INSTANCE_NAME    HOST_NAME
+------------------------------ ----------- ----------- ------------ ---------------- ------------------------------
+TEMP2                                 .004        .000         .004 PROD             apps.user.com
+
+SQL>
+
+
+
+
+2) To get why a session is waiting
+
+col event for a25 word_wrap;
+select a.event event, a.seconds_in_wait, s.status
+from v$session_wait a, v$session s
+where a.sid=s.sid
+and a.sid=&1
+/
+
+
+3) To get sql text of a session
+
+break on hash_value
+set pagesize 1000
+set long 200000
+select hash_value, sql_text
+from v$sqltext
+where hash_value in
+(select sql_hash_value from
+v$session where sid = &1)
+order by piece
+/
+
+
+4) To get lock details with holders and waiters
+
+SELECT lpad('-->',DECODE(a.request,0,0,5),' ')||a.sid sess
+, a.id1
+, a.id2
+, a.lmode
+, a.request req, a.type
+, b.event
+, b.seconds_in_wait
+FROM V$LOCK a, v$session_wait b
+WHERE a.id1 IN (SELECT id1 FROM V$LOCK WHERE lmode = 0)
+and a.sid=b.sid
+ORDER BY id1,request
+/
+
+
+
+5) To get row information of a session, if the information is changing that means the session is actually active else it means inactive
+
+column name format a30 word_wrapped
+column vlu format 999,999,999,999
+select b.name, a.value vlu
+from v$sesstat a, v$statname b
+where a.statistic# = b.statistic#
+and sid =&1
+and a.value != 0
+and b.name like '%row%'
+/
+
+
+
+
+6)
+
+To find the jobs running under all concurrent managers in the instance, used for monitoring if requests are getting backedup under any manager
+
+set linesize 140
+col CONTAINER_NAME for a28
+col PROCID for 999999
+col PROCID for a10
+col TARGET for a6
+col TARGET for 999
+col ACTUAL for a6
+col ACTUAL for 999
+col ENABLED for a7
+col COMPONENT_NAME for a30
+col STARTUP_MODE for a12
+col COMPONENT_STATUS for a17
+select fcq.USER_CONCURRENT_QUEUE_NAME Container_Name,
+DECODE(fcp.OS_PROCESS_ID,NULL,'Not Running',fcp.OS_PROCESS_ID) PROCID, fcq.MAX_PROCESSES TARGET,
+fcq.RUNNING_PROCESSES ACTUAL,fcq.ENABLED_FLAG ENABLED,fsc.COMPONENT_NAME,fsc.STARTUP_MODE,
+fsc.COMPONENT_STATUS from APPS.FND_CONCURRENT_QUEUES_VL fcq, APPS.FND_CP_SERVICES fcs, APPS.FND_CONCURRENT_PROCESSES fcp,
+fnd_svc_components fsc where fcq.MANAGER_TYPE = fcs.SERVICE_ID and fcs.SERVICE_HANDLE = 'FNDCPGSC'
+and fsc.concurrent_queue_id = fcq.concurrent_queue_id(+) and fcq.concurrent_queue_id = fcp.concurrent_queue_id(+)
+and fcq.application_id = fcp.queue_application_id(+) and fcp.process_status_code(+) = 'A'
+and fcq.USER_CONCURRENT_QUEUE_NAME like '%Mail%' order by fcp.OS_PROCESS_ID, fsc.STARTUP_MODE
+/
+
+
+7)
+ To get information on a single concurrent request id
+
+select r.request_id,
+r.oracle_process_id,
+r.oracle_session_id,
+r.os_process_id,
+s.sid,
+s.serial#,
+s.paddr
+from fnd_concurrent_requests r,
+v$session s
+where request_id = &1
+and r.oracle_session_id = s.audsid(+)
+/
+
+
+
+Number of times gather schema stats was run in last 30 days
+
+set pages 1000
+set line 132
+set head on
+select  r.request_id,r.actual_start_date,r.phase_code,r.status_code,r.actual_completion_date,argument_text from
+apps.fnd_concurrent_programs_vl p, apps.fnd_concurrent_requests r
+where p.concurrent_program_id = r.concurrent_program_id
+and p.application_id = r.program_application_id
+and p.user_concurrent_program_name like '%Gather Schema Statistics%'
+and  r.actual_start_date >= sysdate-30 order by r.requested_start_date;
+
+
+To check hashsql
+
+
+set verify off
+accept trgthash number default 0 prompt 'What is the SQL Hash Value : '
+select t.sql_text
+from v$sqltext_with_newlines t
+where t.hash_value + 0 = &trgthash
+and &trgthash != 0
+order by t.piece;
+
+
+Concurrent Requests Average/Max/Min hours runtime details.
+
+set linesize 200
+col username for a10
+col status for a10
+col phase  for a10
+col PNAME for a70
+col request_id for 99999999999
+col PNAME  for a40
+select
+b.user_name username,
+a.USER_CONCURRENT_PROGRAM_NAME  as PNAME,
+avg((nvl(ACTUAL_COMPLETION_DATE,sysdate)-a.REQUESTED_START_DATE)*24) avg_Hrs_running, 
+max((nvl(ACTUAL_COMPLETION_DATE,sysdate)-a.REQUESTED_START_DATE)*24) Max_Hrs_running,
+min((nvl(ACTUAL_COMPLETION_DATE,sysdate)-a.REQUESTED_START_DATE)*24) Min_Hrs_running
+from
+apps.fnd_conc_req_summary_v a,
+apps.fnd_user  b
+where
+phase_code = 'C' and status_code = 'C' and
+a.REQUESTED_START_DATE > sysdate-30 and
+upper(a.USER_CONCURRENT_PROGRAM_NAME) like upper('%&str%') and
+a.REQUESTED_BY=b.user_id
+group by b.user_name,a.USER_CONCURRENT_PROGRAM_NAME;
+
+
+
+To check  used,free and total space of all the tablespace.
+
+
+column file_name format a46
+column tablespace_name format a11
+set verify off
+SELECT  dts.tablespace_name,
+NVL(ddf.bytes / 1024 / 1024, 0) avail,
+NVL(ddf.bytes - NVL(dfs.bytes, 0), 0)/1024/1024 used,
+NVL(dfs.bytes / 1024 / 1024, 0) free,
+TO_CHAR(NVL((ddf.bytes - NVL(dfs.bytes, 0)) / ddf.bytes * 100, 0), '990.00')
+"Used %" ,
+TO_CHAR(NVL((ddf.bytes - NVL(ddf.bytes - NVL(dfs.bytes, 0), 0)) / ddf.bytes
+* 100, 0), '990.00') free_pct,
+decode(sign(
+(NVL(ddf.bytes - NVL(dfs.bytes, 0), 0)/1024/1024)/0.85 - NVL(ddf.bytes / 1024 /
+1024, 0)),-1,0,(NVL(ddf.bytes - NVL(dfs.bytes, 0), 0)/1024/1024)/0.85 - NVL(ddf.bytes / 1024 / 1024, 0))  "Required MB"
+FROM
+sys.dba_tablespaces dts,
+(select tablespace_name, sum(bytes) bytes
+from dba_data_files group by tablespace_name) ddf,
+(select tablespace_name, sum(bytes) bytes
+from dba_free_space group by tablespace_name) dfs
+WHERE
+dts.tablespace_name = ddf.tablespace_name(+)
+AND dts.tablespace_name = dfs.tablespace_name(+);
+
+
+
+List Responsibilities That Can Run a Given Concurrent Program
+Purpose
+-------
+
+This script helps in identifying the list of responsibilities that can run a given concurrent request
+REM Save this file as whocanrun.sql
+REM Usage: sqlplus apps/apps @whocanrun
+REM or: sqlplus apps/apps @whocanrun
+REM
+REM Implemented remark 64545.1 to modify script for use with 11i
+REM changed to use fnd_concurrent_programs_vl, and fnd_responsibility_vl
+REM in place of fnd_concurrent_programs, and fnd_responsibility.
+REM
+set verify off
+set pagesize 1000
+column RN format A40 heading "Responsibility Name"
+prompt
+prompt &1 can be run by:
+SELECT responsibility_name RN
+FROM fnd_request_groups frg,
+fnd_request_group_units frgu,
+fnd_concurrent_programs_vl fcpv,
+fnd_responsibility_vl frv
+WHERE frgu.request_unit_type = 'P'
+AND (UPPER(fcpv.concurrent_program_name) = UPPER('&1')
+OR
+UPPER(fcpv.user_concurrent_program_name) = UPPER('&1'))
+AND frgu.request_group_id = frg.request_group_id
+AND frgu.request_unit_id = fcpv.concurrent_program_id
+AND frv.request_group_id = frg.request_group_id
+ORDER BY responsibility_name
+/
+
+
+
+prompt --> Registered Applications
+
+select application_id, application_short_name, basepath
+from fnd_application
+order by application_id
+
+prompt --> Multi-Currency enabled?
+
+select decode(multi_currency_flag,'N','No','Y','Yes','No')
+from fnd_product_groups;
+
+
+
+prompt --> Existing Operating Units
+select ORGANIZATION_ID, NAME
+from hr_operating_units
+order by ORGANIZATION_ID;
+
+
+prompt --> Multi-Org enabled?
+
+select decode(multi_org_flag,'N','No','Y','Yes','No')
+from fnd_product_groups;
+
+
+
+Product Group Information
+select product_group_id, product_group_name, release_name,
+        product_group_type, argument1
+  from fnd_product_groups;
+
+prompt --> Rollback Segment Sizes
+
+rem
+rem We add one DB block to the rollback segment sizes reported by
+rem this query because v$rollstat displays rollback segment sizes as
+rem being on DB block size smaller than they really are.  This is
+rem documented in the RDBMS manuals (see v$rollstat).
+rem
+
+select un.name segment_name,
+       ts.name tablespace_name,
+       (rs.RSSIZE/1024 + &&db_blk_size_k) current_size,
+       rs.EXTENTS number_of_extents,
+       decode(un.user#,1,'PUBLIC','SYS') owner
+from sys.undo$ un, v$rollstat rs, sys.ts$ ts
+where un.us# = rs.usn
+and un.ts# = ts.ts#
+order by 1;
+
+prompt --> Rollback Segment Information
+
+select dr.segment_name, dr.tablespace_name,
+       dr.initial_extent/1024 initial_extent,
+       dr.next_extent/1024 next_extent,
+       dr.min_extents, dr.max_extents,
+       dr.status
+from dba_rollback_segs dr
+order by 1;
+
+prompt --> Registered ORACLE Schemas
+
+select fou.oracle_id, fou.oracle_username
+        , fou.install_group_num, fou.read_only_flag
+        , decode(nvl(du.username,' X '),' X ','No','Yes') in_dba_users
+        , nvl(du.default_tablespace,'Unknown') default_tablespace
+        , nvl(du.temporary_tablespace,'Unknown') temporary_tablespace
+from dba_users du, fnd_oracle_userid fou
+where du.username(+) = fou.oracle_username
+order by 1;
+
+prompt --> Product Installation Status, Version Info and Patch Level
+
+select decode(nvl(a.APPLICATION_short_name,'Not Found'),
+        'SQLAP','AP','SQLGL','GL','OFA','FA',
+        'Not Found','id '||to_char(fpi.application_id),
+        a.APPLICATION_short_name) apps,
+        decode(fpi.status,'I','Installed','S','Shared',
+               'N','Inactive',fpi.status) status,
+        fpi.product_version,
+        nvl(fpi.patch_level,'-- Not Available --') Patchset,
+        to_char(fpi.last_update_date,'dd-Mon-RRRR') "Update Date"
+from fnd_oracle_userid o, fnd_application a, fnd_product_installations fpi
+where fpi.application_id = a.application_id(+)
+  and fpi.oracle_id = o.oracle_id(+)
+order by 1,2
+
+
+
+prompt --> Product Database Configuration
+
+select decode(nvl(a.APPLICATION_short_name,'Not Found'),
+        'SQLAP','AP','SQLGL','GL','OFA','FA',
+        'Not Found','id '||to_char(fpi.application_id),
+        a.APPLICATION_short_name) apps,
+        decode(nvl(o.ORACLE_username,'Not Found'),
+               'Not Found','id '||to_char(fpi.oracle_id),
+               o.ORACLE_username) ORACLE_username,
+        decode(fpi.db_status,'I','Installed','L','Custom','N','Not Installed',
+        'S','Shared',fpi.db_status) "DB Status",
+        fpi.install_group_num,
+        fpi.sizing_factor,
+        fpi.tablespace, fpi.index_tablespace
+from fnd_oracle_userid o, fnd_application a, fnd_product_installations fpi
+where fpi.application_id = a.application_id(+)
+  and fpi.oracle_id = o.oracle_id(+)
+order by 1,2
+
+
+
+prompt --> Localization Module Information
+
+select decode(a.APPLICATION_short_name,
+        'SQLAP','AP','SQLGL','GL','OFA','FA',
+        a.APPLICATION_short_name) apps
+        , o.ORACLE_username
+        , fmi.module_short_name
+        , fmi.module_version
+        , decode(fmi.status,'I','Installed','S','Shared',
+                 'N','Inactive',fmi.status) status,
+        to_char(fmi.last_update_date,'dd-Mon-RRRR') "Update Date"
+from fnd_oracle_userid o, fnd_application a, fnd_module_installations fmi
+where fmi.application_id = a.application_id(+)
+  and fmi.oracle_id = o.oracle_id(+)
+order by 1,2,3
+
+
+
+prompt --> Registered Data Groups
+
+select data_group_id,
+       data_group_name
+        , decode(default_group_flag,'N','No','Y','Yes',
+                 default_group_flag) default_group_flag
+        , to_char(creation_date,'DD-MM-YYYY') creation, created_by crby
+        , to_char(last_update_date,'DD-MM-YYYY') updated, last_updated_by luby
+from fnd_data_groups
+order by data_group_id
+
+prompt --> Base language and other Installed languages
+
+select decode(installed_flag,'I','Installed','B','Base','Unknown')
+        installed_flag,
+        language_code, nls_language from fnd_languages
+where installed_flag in ('I','B')
+order by installed_flag
+
+Prompt --> to see invalid objects
+
+select owner, count(*) num_invalid
+from dba_objects
+where status='INVALID'
+group by owner;
+
+
+
+ 1) to find the trace file for the request or to get the session details ofconcurrent programs
+=================================================================================================
+   select os_process_id from apps.fnd_concurrent_requests where request_id='&requestid';
+
+  select sid,serial# from v$session where process='&p';
+
+  embed into single qury
+  ==========================
+      select s.sid,s.serial# from v$session s,apps.fnd_concurrent_requests f  where s.process=f.os_process_id and f.request_id='&reqid';
+
+ we have to get the SPID from this session or to find out the SPID
+===================================================================
+
+ select p.spid from v$session s,v$process p
+ where s.paddr=p.addr and sid='&sid';
+
+
+
+ 2) how can we trace an SQL from a session
+   =======================================
+ select sid,serial#,sql_hash_value from v$session where username='SCOTT';
+
+  hashvalue
+  ============
+  when execution plan is prepared a hard code value is generated in the library cache.
+select sql_text from v$sql where hash_value='&hashvalue';
+
+  embeded
+==========
+
+  select s.sql_text from v$sql s,v$session p where s.hash_value=p.sql_hash_value;
+
+ computing the no. of blocks generated for undo
+======================================================
+select (sum(undoblks)/sum((end_time-begin_time)*86400)) from v$undostat;
+
+
+
+
+
+
+How to put all tablespace in begin/end backup mode in 8i?
+
+set pagesize 0
+spool begin_backup.sql
+select distinct 'alter tablespace ' || tablespace_name|| ' begin backup;' from dba_data_files;
+
+set pagesize 0
+spool end_backup.sql
+select distinct 'alter tablespace ' || tablespace_name|| ' end backup;' from dba_data_files;
+
+
+
+
+query to check temp usage
+=======================
+
+SELECT A.tablespace_name tablespace, D.mb_total,
+SUM (A.used_blocks * D.block_size) / 1024 / 1024 mb_used,
+D.mb_total - SUM (A.used_blocks * D.block_size) / 1024 / 1024 mb_free
+FROM v$sort_segment A,
+(
+SELECT B.name, C.block_size, SUM (C.bytes) / 1024 / 1024 mb_total
+FROM v$tablespace B, v$tempfile C
+WHERE B.ts#= C.ts#
+GROUP BY B.name, C.block_size
+) D
+WHERE A.tablespace_name = D.name
+GROUP by A.tablespace_name, D.mb_total;
+
+
+TABLESPACE MB_TOTAL MB_USED MB_FREE
+------------------------------- ---------- ---------- ----------
+TEMP 5120 0 5120
+
+

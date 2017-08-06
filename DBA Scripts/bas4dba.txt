@@ -1,0 +1,74 @@
+1
+If a script is designed to be run without user input, several options are available for calling it. You can run a script in the background and continue even if you disconnect, by entering a command in the following form:
+nohup /path_to_dir/myscript_here.sh &
+
+
+
+2
+echo "You are logged in as ‘whoami‘";
+
+if [ ‘whoami‘ != "oracle" ]; then
+  echo "Must be logged on as oracle to run this script."
+  exit
+fi
+
+
+3
+
+Scripts written to interact with Oracle Database sometimes require the entry of sensitive information such as a database password. Thestty –echo command turns off the screen echo, so that the information entered for the subsequent read command will not appear on the screen. After the sensitive information has been read and stored in a variable ( pw in the example below), the display can be turned back on with stty echo.
+       
+stty -echo    
+        echo -n "Enter the database system password:  "
+        read pw
+stty echo
+
+
+4
+alert log
+
+cat $1 | grep ORA- > alert.err
+
+if [ ‘cat alert.err|wc -l‘ -gt 0 ]
+then
+        mail -s "$0 $1 Errors" administrator@yourcompany.com < alert.err
+fi      
+
+
+5
+Backup 
+racle Recovery Manager Scripts. Oracle Recovery Manager (RMAN) is a utility that can be used to administer database backup and recovery. This greatly simplifies administration on multiple platforms, because all backup scripts can be written to be run by RMAN, reducing the amount of platform-specific code. RMAN can be called by the underlying operating system and passed a script. For example, a cold (cold.sh) backup might consist of the following script:
+   
+#!/bin/bash
+rman target / <<EOF
+shutdown immediate;
+startup mount;
+backup spfile;
+backup database;
+alter database open;
+delete noprompt obsolete;
+quit;
+EOF     
+
+
+sh cold.sh | mail -s"Backup ‘date‘" administrator@yourcompany.com
+
+
+6
+listener
+tnsping ptch04 |grep TNS- 
+
+
+7
+monitoring
+
+Database Monitoring. The ps command can be used to report process status and to check to see if a database, listener, script, or any other process of interest is running. If you want to list all the databases that are currently running on a server, you can run the following command:
+   
+echo "‘ps -ef | grep smon|grep -v grep|awk '{print $8}'| awk -F \"_\" 
+'{print$3}'‘"
+
+
+
+
+
+
+

@@ -1,0 +1,33 @@
+Set up SMTP Server using GMAIL
+
+1. Install Package
+yum  install postfix
+yum remove sendmail
+chkconfig –-add postfix
+
+2. Create Password File
+echo 'smtp.gmail.com username:password' > /etc/postfix/sasl_passwd
+postmap hash:/etc/postfix/sasl_passwd
+
+3. Configure postfix relay and authentication 
+Cd /etc/posfixt
+Cp main.cf main.cf.orig
+Vi main.cf
+#SMTP Gmail Relay
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = secure
+smtp_tls_mandatory_protocols = TLSv1
+smtp_tls_mandatory_ciphers = high
+smtp_tls_secure_cert_match = nexthop
+smtp_tls_CAfile = /etc/pki/tls/certs/ca-bundle.crt
+relayhost = smtp.gmail.com:587
+
+4. Restart Postfix
+service postfix restart
+
+5. Test Email
+mail username@email.com
+Test Email
+Did you get this

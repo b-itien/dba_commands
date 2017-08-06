@@ -1,0 +1,78 @@
+* Take some type of backup before starting.
+
+1. Create target files system and cp db files from source db home to target db
+Change listener and tns info to target information
+
+2. Cp datafiles from source db to target db
+Select name from v$datafile;
+Make sure source database is down
+Create target controlfile location should be at least (2) locations
+Copy datafiles
+Delete control files from both locations
+
+3. Startup source database
+
+4. Create target pfile from source database
+source source profile
+cd $ORACLE_HOME/dbs
+create pfile=’init<newsid>.ora’ from spfile;
+
+5. Mv init<newsid>.ora from source database to target database filesystem
+
+6. Edit init<newsid>.ora
+Change source sid to target sid – lowercase and capital
+
+7. In source database create controlfile script.
+alter database backup controlfile to trace as '/tmp/control.sql'; from source database
+
+8. Edit control.sql
+Delete everything until 2nd START NOMOUNT
+Change REUSE to SET
+Change source sid to target sid – lowercase and capital
+Copy tempfile script
+Delete everything under CHARACTER SET WE8MSWIN1252;
+Save file
+
+9. Create profile for target database
+
+10. Create audit dir 
+cd $ORACLE_BASE/admin/
+mkdir –p <new sid>/adump
+
+10. Source target profile and open database with target pfile
+cd $ORACLE_HOME/dbs
+startup nomount pfile='init<sid>.ora';
+
+11. Create control file
+cd /tmp/.
+Source target profile
+@control.sql
+alter Database open resetlogs; 
+
+12. Create temp files
+ALTER TABLESPACE TEMP ADD TEMPFILE '/u02/data/devdb/temp01.dbf'
+     SIZE 58720256  REUSE AUTOEXTEND ON NEXT 655360  MAXSIZE 32767M;
+
+13. Verify clone is complete 
+select status from v$instance;
+select name from v$datafile; 
+select distinct status from v$datafile; online and system
+alter database rename global_name to global name;
+create spfile from pfile;
+
+14. Change DBID for new Database
+shutdown immediate
+startup mount
+exit
+nid target=/  ->Y
+sqlplus '/as sysdba'
+startup mount
+alter database open resetlogs;
+
+15. check the alert log
+
+16. find and remove all sid references
+find . –name 
+find . -name *SID* -exec rm -Rf {} \;
+
+
