@@ -1,0 +1,34 @@
+database
+create database <databasename>
+create database <databasename> [ with [duration xx] [replication n] [shard duration ddd] [name <retention-policy>]]
+show databases
+lists all databases
+use <databasename>
+connects to the given database
+drop database <databasename>
+measurements (time series in database)
+show measurements
+lists all time series names
+show measurements [ on <database> ] [ with measurement =~ /regexp/ ] [ where <tag> <operator> <value> ] limit x offset y
+drop measurement <measurement>
+show tag keys
+lists all tag names in all measurements
+show tag keys [on <database> ] [ from <measurement> ] [ where <tag><operator><value> ] [ limit x ] [ offset y ]
+show tag values
+as it says – it shows tag values 🙂
+show tag values [ on <database> ] [ from <measurement> ]  with key <key><operator><value> [ in (“<tag>”, “<tag2>”) ] where … limit … offset ….
+show tag values on “mydatabase” with key=”shop_name”
+show field keys
+lists all value fields in all measurements
+show field keys [ on <database> ] [ from <measurement> ]
+show series
+lists all existing variants of measurement name + tags
+show series on <database> from <measurement> where <….> LIMIT x OFFSET y
+drop series
+delete from <measurement> where <tag>=<value> | <timeinterval>
+delete where time < ‘yyyy-mm-dd’
+retention policies
+show retention policies [ ON <databasename> ]
+create retention policy <name> on <database> duration <ddd> replication <n. [shard duration <duration>] [default]
+alter retention policy
+drop retention policy
